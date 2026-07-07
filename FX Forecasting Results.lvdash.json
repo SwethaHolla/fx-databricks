@@ -1,0 +1,449 @@
+{
+  "datasets": [
+    {
+      "name": "452c2c96",
+      "displayName": "Currency Forecast Accuracy by Day Ahead",
+      "queryLines": [
+        "SELECT\r\n",
+        "    pred_len_config,\r\n",
+        "    variate,\r\n",
+        "    ROUND(AVG(ABS(actual - forecast)), 5) AS avg_abs_error\r\n",
+        "FROM fx_predictions\r\n",
+        "GROUP BY pred_len_config, variate\r\n",
+        "ORDER BY pred_len_config, avg_abs_error DESC"
+      ],
+      "catalog": "workspace",
+      "schema": "default"
+    },
+    {
+      "name": "e74cb0d6",
+      "displayName": "Forecast and Actual Values by Day Ahead",
+      "queryLines": [
+        "SELECT day_ahead, actual, forecast\r\n",
+        "FROM fx_predictions\r\n",
+        "WHERE variate = :variate AND pred_len_config = :pred_len_config\r\n",
+        "ORDER BY day_ahead"
+      ],
+      "parameters": [
+        {
+          "displayName": "variate",
+          "keyword": "variate",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "gbp_usd"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "pred_len_config",
+          "keyword": "pred_len_config",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "24"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "catalog": "workspace",
+      "schema": "default"
+    },
+    {
+      "name": "57081c2f",
+      "displayName": "Model vs Naive Baseline MAE",
+      "queryLines": [
+        "WITH lagged AS (\r\n",
+        "  SELECT\r\n",
+        "    variate,\r\n",
+        "    pred_len_config,\r\n",
+        "    actual,\r\n",
+        "    forecast,\r\n",
+        "    LAG(actual) OVER (PARTITION BY variate, pred_len_config ORDER BY day_ahead) AS prev_actual\r\n",
+        "  FROM\r\n",
+        "    fx_predictions\r\n",
+        ")\r\n",
+        "SELECT\r\n",
+        "  variate,\r\n",
+        "  pred_len_config,\r\n",
+        "  AVG(ABS(actual - forecast)) AS model_mae,\r\n",
+        "  AVG(ABS(actual - prev_actual)) AS naive_baseline_mae\r\n",
+        "FROM\r\n",
+        "  lagged\r\n",
+        "GROUP BY\r\n",
+        "  variate,\r\n",
+        "  pred_len_config"
+      ]
+    },
+    {
+      "name": "7099afb8",
+      "displayName": "Foreign Exchange Forecast Error Analysis Summary",
+      "queryLines": [
+        "SELECT\r\n",
+        "    variate,\r\n",
+        "    pred_len_config,\r\n",
+        "    ROUND(AVG(ABS(actual - forecast) / NULLIF(ABS(actual), 0)) * 100, 2) AS mape_pct\r\n",
+        "FROM fx_predictions\r\n",
+        "GROUP BY variate, pred_len_config\r\n",
+        "ORDER BY pred_len_config, mape_pct DESC"
+      ]
+    },
+    {
+      "name": "59f5222b",
+      "displayName": "gold rate data summary and update status",
+      "queryLines": [
+        "SELECT\r\n",
+        "    COUNT(*) AS total_rows,\r\n",
+        "    MAX(rate_date) AS most_recent_date,\r\n",
+        "    DATEDIFF(day, MAX(rate_date), CURRENT_DATE()) AS days_since_last_update\r\n",
+        "FROM fx_gold;\r\n",
+        "\r\n",
+        "SELECT\r\n",
+        "    'gbp_usd' AS column_name, COUNT(*) - COUNT(gbp_usd) AS null_count FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_eur', COUNT(*) - COUNT(gbp_eur) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_jpy', COUNT(*) - COUNT(gbp_jpy) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_cad', COUNT(*) - COUNT(gbp_cad) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_chf', COUNT(*) - COUNT(gbp_chf) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_aud', COUNT(*) - COUNT(gbp_aud) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_sgd', COUNT(*) - COUNT(gbp_sgd) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_sek', COUNT(*) - COUNT(gbp_sek) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'gbp_dkk', COUNT(*) - COUNT(gbp_dkk) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'bank_rate', COUNT(*) - COUNT(bank_rate) FROM fx_silver\r\n",
+        "UNION ALL SELECT 'sonia', COUNT(*) - COUNT(sonia) FROM fx_silver\r\n",
+        "ORDER BY null_count DESC;\r\n",
+        "\r\n",
+        "SELECT\r\n",
+        "    date AS ingestion_date,\r\n",
+        "    COUNT(*) AS rows_landed\r\n",
+        "FROM fx_bronze\r\n",
+        "GROUP BY date\r\n",
+        "ORDER BY date;\r\n",
+        "SELECT\r\n",
+        "    'gbp_usd' AS column_name, MIN(gbp_usd) AS min_val, MAX(gbp_usd) AS max_val FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_eur', MIN(gbp_eur), MAX(gbp_eur) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_jpy', MIN(gbp_jpy), MAX(gbp_jpy) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_cad', MIN(gbp_cad), MAX(gbp_cad) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_chf', MIN(gbp_chf), MAX(gbp_chf) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_aud', MIN(gbp_aud), MAX(gbp_aud) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_sgd', MIN(gbp_sgd), MAX(gbp_sgd) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_sek', MIN(gbp_sek), MAX(gbp_sek) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'gbp_dkk', MIN(gbp_dkk), MAX(gbp_dkk) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'bank_rate', MIN(bank_rate), MAX(bank_rate) FROM fx_gold\r\n",
+        "UNION ALL SELECT 'sonia', MIN(sonia), MAX(sonia) FROM fx_gold;"
+      ]
+    },
+    {
+      "name": "3eab75d8",
+      "displayName": "Forecast Error Metrics by Variate and Horizon",
+      "queryLines": [
+        "SELECT\r\n",
+        "    variate,\r\n",
+        "    pred_len_config,\r\n",
+        "    ROUND(AVG(ABS(actual - forecast) / NULLIF(ABS(actual), 0)) * 100, 2) AS mape_pct\r\n",
+        "FROM fx_predictions\r\n",
+        "WHERE variate NOT LIKE '%logret%'\r\n",
+        "GROUP BY variate, pred_len_config\r\n",
+        "ORDER BY pred_len_config, mape_pct DESC"
+      ]
+    },
+    {
+      "name": "2cd4f69b",
+      "displayName": "Forecast Error Metrics for Log Return Variates Dataset",
+      "queryLines": [
+        "SELECT\r\n",
+        "    variate,\r\n",
+        "    pred_len_config,\r\n",
+        "    ROUND(AVG(ABS(actual - forecast)), 5) AS mae\r\n",
+        "FROM fx_predictions\r\n",
+        "WHERE variate LIKE '%logret%'\r\n",
+        "GROUP BY variate, pred_len_config\r\n",
+        "ORDER BY pred_len_config, mae DESC"
+      ]
+    },
+    {
+      "name": "1d8d9f44",
+      "displayName": "GBP EUR Prediction Accuracy Insights",
+      "queryLines": [
+        "SELECT day_ahead, actual, forecast, ABS(actual - forecast) / NULLIF(ABS(actual), 0) * 100 AS pct_error\r\n",
+        "FROM fx_predictions\r\n",
+        "WHERE variate = 'gbp_eur' AND pred_len_config = '96'\r\n",
+        "ORDER BY pct_error DESC\r\n",
+        "LIMIT 10"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "fd3e8326",
+      "displayName": "results",
+      "layout": [
+        {
+          "widget": {
+            "name": "gbp-usd-actual-vs-forecast",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e74cb0d6",
+                  "fields": [
+                    {
+                      "name": "day_ahead",
+                      "expression": "`day_ahead`"
+                    },
+                    {
+                      "name": "actual",
+                      "expression": "`actual`"
+                    },
+                    {
+                      "name": "forecast",
+                      "expression": "`forecast`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "GBP: Actual vs. Forecast",
+                "showDescription": true,
+                "description": "Shows the model's forecast against what actually happened, for one held-out test window. Values are in real units (post --inverse), not the model's internal normalized scale."
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "day_ahead",
+                  "axis": {
+                    "title": "Days Ahead"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "actual"
+                    },
+                    {
+                      "fieldName": "forecast"
+                    }
+                  ]
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "forecast-error-by-currency-mape-percent",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "3eab75d8",
+                  "fields": [
+                    {
+                      "name": "pred_len_config",
+                      "expression": "`pred_len_config`"
+                    },
+                    {
+                      "name": "variate",
+                      "expression": "`variate`"
+                    },
+                    {
+                      "name": "mape_pct",
+                      "expression": "`mape_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Forecast Error by Currency - MAPE %",
+                "showDescription": true,
+                "description": "Mean absolute percentage error per price-level series (FX pairs, Bank Rate, SONIA), split by forecast horizon. MAPE is used here instead of raw MAE so currencies on \nvery different scales (e.g. GBP/JPY ~200 vs GBP/USD ~1.3) can be compared fairly.  Log-return columns are excluded from this chart since MAPE breaks down near zero\nsee Chart 3"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "variate",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "mape_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "pred_len_config",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true,
+                  "showTotal": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "forecast-error-log-return-series-mae",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2cd4f69b",
+                  "fields": [
+                    {
+                      "name": "pred_len_config",
+                      "expression": "`pred_len_config`"
+                    },
+                    {
+                      "name": "variate",
+                      "expression": "`variate`"
+                    },
+                    {
+                      "name": "mae",
+                      "expression": "`mae`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Forecast Error by Log-Return Series - MAE",
+                "description": "Mean absolute error for daily log-return series, using MAE rather than MAPE since log returns hover near zero and MAPE's division-by-actual explodes toward infinity \non near-zero values."
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "variate",
+                  "axis": {
+                    "title": "Log-Return Series"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "mae",
+                  "axis": {
+                    "title": "Mean Absolute Error"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "pred_len_config",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": false,
+                  "showTotal": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "a01c926c",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "f7f0e2eb",
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": []
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
