@@ -62,7 +62,9 @@ log-return series, which sit near zero and break MAPE's division):
 history Bank Rate range (0.10%–5.25%) exactly matches the real BoE base
 rate over this period (pandemic-era low to 2023 peak), a verifiable
 correctness signal for the whole pipeline.
-
+![image_1783466325151.png](./image_1783466325151.png "image_1783466325151.png")
+![image_1783466356233.png](./image_1783466356233.png "image_1783466356233.png")
+![image_1783466372303.png](./image_1783466372303.png "image_1783466372303.png")
 ## Orchestration - Databricks Workflow
 
 Beyond manually-run notebooks, the pipeline is orchestrated end-to-end as a
@@ -82,6 +84,8 @@ data_loader  →  Bronze-silver-gold  →  iTransformation_and_prediction
 Each task is set to run only if its dependency **"All succeeded"** so a
 failed ingestion or a failed data-quality assertion stops the pipeline
 before it trains on bad data, rather than silently continuing.
+
+![image_1783466429903.png](./image_1783466429903.png "image_1783466429903.png")
 
 One operational note carried over from the debugging log below: since each
 task can land on fresh serverless compute, the training task's dependency
