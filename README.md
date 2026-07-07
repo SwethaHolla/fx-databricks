@@ -86,7 +86,7 @@ failed ingestion or a failed data-quality assertion stops the pipeline
 before it trains on bad data, rather than silently continuing.
 
 ![image_1783466429903.png](./image_1783466429903.png "image_1783466429903.png")
-
+![image_1783466789607.png](./image_1783466789607.png "image_1783466789607.png")
 One operational note carried over from the debugging log below: since each
 task can land on fresh serverless compute, the training task's dependency
 install (`pip install -r requirements.txt`) is baked into every run rather
